@@ -11,6 +11,25 @@
   printf("Usage: %s [-p style] [-m alloc_mode] number\n", argv[0])
 #define INVALID_NUMBER_ERROR_MESSAGE                                           \
   printf("Pass a number between 1 and %ld\n", LONG_MAX)
+#define REALLOC_IF_NECESARY(check, increase, capacity, available, length,      \
+                            data, temp)                                        \
+  if (check) {                                                                 \
+    increase;                                                                  \
+                                                                               \
+    temp = (char *)malloc(capacity);                                           \
+    if (temp == NULL) {                                                        \
+      fprintf(stderr, "Not enough memory in system\n");                        \
+      exit(1);                                                                 \
+    }                                                                          \
+                                                                               \
+    strncpy(temp, data, capacity);                                             \
+    free(data);                                                                \
+                                                                               \
+    data = temp;                                                               \
+    temp = NULL;                                                               \
+                                                                               \
+    available = capacity - length;                                             \
+  }
 
 typedef enum { VERTICAL, HORIZONTAL } orientation_t;
 typedef enum { BUFFER, MALLOC } allocation_t;
@@ -175,23 +194,10 @@ char *getFizzBuzzStringMalloc(long value) {
 
   for (long i = 1; i <= value; i++) {
     if ((i % 3 == 0) && (i % 5 == 0)) {
-      if (str_buffer.free <= FizzBuzzSize + 2) {
-        str_buffer.capacity += base_capacity * 2;
-
-        temp_buffer = (char *)malloc(str_buffer.capacity);
-        if (temp_buffer == NULL) {
-          fprintf(stderr, "Not enough memory in system\n");
-          exit(1);
-        }
-
-        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
-        free(str_buffer.data);
-
-        str_buffer.data = temp_buffer;
-        temp_buffer = NULL;
-
-        str_buffer.free = str_buffer.capacity - str_buffer.length;
-      }
+      REALLOC_IF_NECESARY(str_buffer.free <= FizzBuzzSize + 2,
+                          str_buffer.capacity += base_capacity * 2,
+                          str_buffer.capacity, str_buffer.free,
+                          str_buffer.length, str_buffer.data, temp_buffer)
 
       size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
                       "%s", "Fizzbuzz, ");
@@ -204,23 +210,10 @@ char *getFizzBuzzStringMalloc(long value) {
     }
 
     if (i % 3 == 0) {
-      if (str_buffer.free <= FizzSize + 2) {
-        str_buffer.capacity += base_capacity * 2;
-
-        temp_buffer = (char *)malloc(str_buffer.capacity);
-        if (temp_buffer == NULL) {
-          fprintf(stderr, "Not enough memory in system\n");
-          exit(1);
-        }
-
-        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
-        free(str_buffer.data);
-
-        str_buffer.data = temp_buffer;
-        temp_buffer = NULL;
-
-        str_buffer.free = str_buffer.capacity - str_buffer.length;
-      }
+      REALLOC_IF_NECESARY(str_buffer.free <= FizzSize + 2,
+                          str_buffer.capacity += base_capacity * 2,
+                          str_buffer.capacity, str_buffer.free,
+                          str_buffer.length, str_buffer.data, temp_buffer)
 
       size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
                       "%s", "Fizz, ");
@@ -233,23 +226,10 @@ char *getFizzBuzzStringMalloc(long value) {
     }
 
     if (i % 5 == 0) {
-      if (str_buffer.free <= BuzzSize + 2) {
-        str_buffer.capacity += base_capacity * 2;
-
-        temp_buffer = (char *)malloc(str_buffer.capacity);
-        if (temp_buffer == NULL) {
-          fprintf(stderr, "Not enough memory in system\n");
-          exit(1);
-        }
-
-        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
-        free(str_buffer.data);
-
-        str_buffer.data = temp_buffer;
-        temp_buffer = NULL;
-
-        str_buffer.free = str_buffer.capacity - str_buffer.length;
-      }
+      REALLOC_IF_NECESARY(str_buffer.free <= BuzzSize + 2,
+                          str_buffer.capacity += base_capacity * 2,
+                          str_buffer.capacity, str_buffer.free,
+                          str_buffer.length, str_buffer.data, temp_buffer)
 
       size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
                       "%s", "Buzz, ");
@@ -261,23 +241,10 @@ char *getFizzBuzzStringMalloc(long value) {
       continue;
     }
 
-    if (str_buffer.free <= snprintf(NULL, 0, "%ld, ", i)) {
-      str_buffer.capacity += base_capacity * 2;
-
-      temp_buffer = (char *)malloc(str_buffer.capacity);
-      if (temp_buffer == NULL) {
-        fprintf(stderr, "Not enough memory in system\n");
-        exit(1);
-      }
-
-      strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
-      free(str_buffer.data);
-
-      str_buffer.data = temp_buffer;
-      temp_buffer = NULL;
-
-      str_buffer.free = str_buffer.capacity - str_buffer.length;
-    }
+    REALLOC_IF_NECESARY(str_buffer.free <= snprintf(NULL, 0, "%ld, ", i),
+                        str_buffer.capacity += base_capacity * 2,
+                        str_buffer.capacity, str_buffer.free, str_buffer.length,
+                        str_buffer.data, temp_buffer)
 
     size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
                     "%ld, ", i);
@@ -287,23 +254,9 @@ char *getFizzBuzzStringMalloc(long value) {
     str_buffer.free = str_buffer.capacity - str_buffer.length;
   }
 
-  if (str_buffer.free <= 4) {
-    str_buffer.capacity += 20;
-
-    temp_buffer = (char *)malloc(str_buffer.capacity);
-    if (temp_buffer == NULL) {
-      fprintf(stderr, "Not enough memory in system\n");
-      exit(1);
-    }
-
-    strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
-    free(str_buffer.data);
-
-    str_buffer.data = temp_buffer;
-    temp_buffer = NULL;
-
-    str_buffer.free = str_buffer.capacity - str_buffer.length;
-  }
+  REALLOC_IF_NECESARY(str_buffer.free <= 4, str_buffer.capacity += 20,
+                      str_buffer.capacity, str_buffer.free, str_buffer.length,
+                      str_buffer.data, temp_buffer)
 
   size = snprintf(&str_buffer.data[str_buffer.length - 2], str_buffer.free,
                   "%s", ".");
