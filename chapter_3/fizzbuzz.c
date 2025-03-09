@@ -15,6 +15,13 @@
 typedef enum { VERTICAL, HORIZONTAL } orientation_t;
 typedef enum { BUFFER, MALLOC } allocation_t;
 
+typedef struct {
+  char *data;
+  int capacity;
+  int length;
+  int free;
+} buffer_t;
+
 int FizzSize = sizeof("Fizz");
 int BuzzSize = sizeof("Buzz");
 int FizzBuzzSize = sizeof("Fizzbuzz");
@@ -150,54 +157,157 @@ void printFizzBuzzVertical(long value) {
 }
 
 char *getFizzBuzzStringMalloc(long value) {
-  int buffer_capacity = ceil(value / 2.) * 8 + (value) * 2 + 2;
-  int buffer_length = 0;
+  int base_capacity = ceil(value / 2.) * 8 + (value) * 2 + 2;
 
-  char *buffer = (char *)malloc(buffer_capacity);
-  int max_write = buffer_capacity - buffer_length;
+  buffer_t str_buffer = {.data = NULL,
+                         .capacity = base_capacity,
+                         .length = 0,
+                         .free = base_capacity};
 
+  str_buffer.data = (char *)malloc(str_buffer.capacity);
+  if (str_buffer.data == NULL) {
+    fprintf(stderr, "Not enough memory in system\n");
+    exit(1);
+  }
+
+  char *temp_buffer = NULL;
   int size;
 
   for (long i = 1; i <= value; i++) {
     if ((i % 3 == 0) && (i % 5 == 0)) {
-      size = snprintf(&buffer[buffer_length], max_write, "%s", "Fizzbuzz, ");
-      assert(size > 0 && size < max_write);
+      if (str_buffer.free <= FizzBuzzSize + 2) {
+        str_buffer.capacity += base_capacity * 2;
 
-      buffer_length += size;
-      max_write = buffer_capacity - buffer_length;
+        temp_buffer = (char *)malloc(str_buffer.capacity);
+        if (temp_buffer == NULL) {
+          fprintf(stderr, "Not enough memory in system\n");
+          exit(1);
+        }
+
+        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
+        free(str_buffer.data);
+
+        str_buffer.data = temp_buffer;
+        temp_buffer = NULL;
+
+        str_buffer.free = str_buffer.capacity - str_buffer.length;
+      }
+
+      size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
+                      "%s", "Fizzbuzz, ");
+      assert(size > 0 && size < str_buffer.free);
+
+      str_buffer.length += size;
+      str_buffer.free = str_buffer.capacity - str_buffer.length;
 
       continue;
     }
 
     if (i % 3 == 0) {
-      size = snprintf(&buffer[buffer_length], max_write, "%s", "Fizz, ");
-      assert(size > 0 && size < max_write);
+      if (str_buffer.free <= FizzSize + 2) {
+        str_buffer.capacity += base_capacity * 2;
 
-      buffer_length += size;
-      max_write = buffer_capacity - buffer_length;
+        temp_buffer = (char *)malloc(str_buffer.capacity);
+        if (temp_buffer == NULL) {
+          fprintf(stderr, "Not enough memory in system\n");
+          exit(1);
+        }
+
+        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
+        free(str_buffer.data);
+
+        str_buffer.data = temp_buffer;
+        temp_buffer = NULL;
+
+        str_buffer.free = str_buffer.capacity - str_buffer.length;
+      }
+
+      size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
+                      "%s", "Fizz, ");
+      assert(size > 0 && size < str_buffer.free);
+
+      str_buffer.length += size;
+      str_buffer.free = str_buffer.capacity - str_buffer.length;
 
       continue;
     }
 
     if (i % 5 == 0) {
-      size = snprintf(&buffer[buffer_length], max_write, "%s", "Buzz, ");
-      assert(size > 0 && size < max_write);
+      if (str_buffer.free <= BuzzSize + 2) {
+        str_buffer.capacity += base_capacity * 2;
 
-      buffer_length += size;
-      max_write = buffer_capacity - buffer_length;
+        temp_buffer = (char *)malloc(str_buffer.capacity);
+        if (temp_buffer == NULL) {
+          fprintf(stderr, "Not enough memory in system\n");
+          exit(1);
+        }
+
+        strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
+        free(str_buffer.data);
+
+        str_buffer.data = temp_buffer;
+        temp_buffer = NULL;
+
+        str_buffer.free = str_buffer.capacity - str_buffer.length;
+      }
+
+      size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
+                      "%s", "Buzz, ");
+      assert(size > 0 && size < str_buffer.free);
+
+      str_buffer.length += size;
+      str_buffer.free = str_buffer.capacity - str_buffer.length;
 
       continue;
     }
 
-    size = snprintf(&buffer[buffer_length], max_write, "%ld, ", i);
-    assert(size > 0 && size < max_write);
+    if (str_buffer.free <= snprintf(NULL, 0, "%ld, ", i)) {
+      str_buffer.capacity += base_capacity * 2;
 
-    buffer_length += size;
-    max_write = buffer_capacity - buffer_length;
+      temp_buffer = (char *)malloc(str_buffer.capacity);
+      if (temp_buffer == NULL) {
+        fprintf(stderr, "Not enough memory in system\n");
+        exit(1);
+      }
+
+      strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
+      free(str_buffer.data);
+
+      str_buffer.data = temp_buffer;
+      temp_buffer = NULL;
+
+      str_buffer.free = str_buffer.capacity - str_buffer.length;
+    }
+
+    size = snprintf(&str_buffer.data[str_buffer.length], str_buffer.free,
+                    "%ld, ", i);
+    assert(size > 0 && size < str_buffer.free);
+
+    str_buffer.length += size;
+    str_buffer.free = str_buffer.capacity - str_buffer.length;
   }
 
-  snprintf(&buffer[buffer_length - 2], max_write, "%s", ".");
-  assert(size > 0 && size < max_write);
+  if (str_buffer.free <= 4) {
+    str_buffer.capacity += 20;
 
-  return buffer;
+    temp_buffer = (char *)malloc(str_buffer.capacity);
+    if (temp_buffer == NULL) {
+      fprintf(stderr, "Not enough memory in system\n");
+      exit(1);
+    }
+
+    strncpy(temp_buffer, str_buffer.data, str_buffer.capacity);
+    free(str_buffer.data);
+
+    str_buffer.data = temp_buffer;
+    temp_buffer = NULL;
+
+    str_buffer.free = str_buffer.capacity - str_buffer.length;
+  }
+
+  size = snprintf(&str_buffer.data[str_buffer.length - 2], str_buffer.free,
+                  "%s", ".");
+  assert(size > 0 && size < str_buffer.free);
+
+  return str_buffer.data;
 }
