@@ -1,3 +1,4 @@
+#include <alloca.h>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -30,6 +31,7 @@
                                                                                \
     available = capacity - length;                                             \
   }
+#define MINMAX(value, min, max) value <= min ? min : value >= max ? max : value
 
 typedef enum { VERTICAL, HORIZONTAL } orientation_t;
 typedef enum { BUFFER, MALLOC } allocation_t;
@@ -47,6 +49,7 @@ int FizzBuzzSize = sizeof("Fizzbuzz");
 
 void printFizzBuzzVertical(long);
 char *getFizzBuzzStringMalloc(long);
+long getFizzBuzzString(char *, int, long, long);
 
 int main(int argc, char **argv) {
   if (argc < 2) {
@@ -77,7 +80,7 @@ int main(int argc, char **argv) {
     case 'm':
       if (strncmp("b", optarg, 2) == 0) {
         alloc_mode = BUFFER;
-      } else if (strncmp("h", optarg, 2) == 0) {
+      } else if (strncmp("a", optarg, 2) == 0) {
         alloc_mode = MALLOC;
       } else {
         printf("Unrecognized allocation mode %s\n", optarg);
@@ -141,9 +144,30 @@ int main(int argc, char **argv) {
   }
 
   char *fizz_buzz_string;
+  int buffer_size = MINMAX(value, 100, 10000);
 
-  if (alloc_mode == MALLOC) {
+  switch (alloc_mode) {
+  case MALLOC:
     fizz_buzz_string = getFizzBuzzStringMalloc(value);
+
+    break;
+  case BUFFER:
+    fizz_buzz_string = alloca(buffer_size);
+
+    long start_idx = 1;
+    while (start_idx = getFizzBuzzString(fizz_buzz_string, buffer_size,
+                                         start_idx, value),
+           start_idx != -1) {
+      printf("%s", fizz_buzz_string);
+
+      // We flush the string buffer
+      *fizz_buzz_string = '\0';
+    }
+
+    break;
+  default:
+    fprintf(stderr, "unsuported allocation mode");
+    return 1;
   }
 
   printf("%s\n", fizz_buzz_string);
@@ -263,4 +287,71 @@ char *getFizzBuzzStringMalloc(long value) {
   assert(size > 0 && size < str_buffer.free);
 
   return str_buffer.data;
+}
+
+long getFizzBuzzString(char *buffer, int capacity, long start, long end) {
+  long value_size;
+  int write_size;
+
+  long write_offset = 0;
+
+  for (; start <= end; start++) {
+    if ((start % 3 == 0) && (start % 5 == 0)) {
+      value_size = 11;
+
+      if (capacity < value_size)
+        break;
+
+      write_size =
+          snprintf(&buffer[write_offset], capacity, "%s", "Fizzbuzz, ");
+      assert(write_size > 0 && write_size < capacity);
+
+      capacity -= value_size;
+      write_offset += write_size;
+    } else if (start % 3 == 0) {
+      value_size = 7;
+
+      if (capacity < value_size)
+        break;
+
+      write_size = snprintf(&buffer[write_offset], capacity, "%s", "Fizz, ");
+      assert(write_size > 0 && write_size < capacity);
+
+      capacity -= value_size;
+      write_offset += write_size;
+    } else if (start % 5 == 0) {
+      value_size = 7;
+
+      if (capacity < value_size)
+        break;
+
+      write_size = snprintf(&buffer[write_offset], capacity, "%s", "Buzz, ");
+      assert(write_size > 0 && write_size < capacity);
+
+      capacity -= value_size;
+      write_offset += write_size;
+    } else {
+      value_size = snprintf(NULL, 0, "%ld, ", start);
+
+      if (capacity <= value_size)
+        break;
+
+      write_size = snprintf(&buffer[write_offset], capacity, "%ld, ", start);
+      assert(write_size > 0 && write_size < capacity);
+
+      capacity -= value_size;
+      write_offset += write_size;
+    }
+
+    if (start != end) {
+      continue;
+    }
+
+    write_size = snprintf(&buffer[write_offset - 2], capacity + 2, "%s", ".");
+    assert(write_size > 0 && write_size < capacity + 2);
+
+    return -1;
+  }
+
+  return start;
 }
