@@ -34,10 +34,13 @@ string number_names[91] = {
     {.length = 8, .value = "eighteen"}, {.length = 8, .value = "nineteen"},
     {.length = 6, .value = "twenty"}};
 
-string bin_strings[4] = {{.length = 0, .value = NULL},
+string bin_strings[7] = {{.length = 0, .value = NULL},
                          {.length = 9, .value = " thousand"},
                          {.length = 8, .value = " million"},
-                         {.length = 8, .value = " billion"}};
+                         {.length = 8, .value = " billion"},
+                         {.length = 9, .value = " trillion"},
+                         {.length = 12, .value = " quadrillion"},
+                         {.length = 12, .value = " quintillion"}};
 
 int main(int argc, char *argv[]) {
   number_names[30] = (string){.length = 6, .value = "thirty"};
@@ -73,6 +76,15 @@ int main(int argc, char *argv[]) {
   if (number_str_length <= 0) {
     fprintf(stderr, "You must pass a number to wordinate\n");
     PRINT_USAGE(argv[0]);
+
+    return 1;
+  }
+
+  if (number_str_length > 21) {
+    fprintf(stderr, "You must pass a number less than 22 digits long\n");
+    PRINT_USAGE(argv[0]);
+
+    return 1;
   }
 
   if (number_str_length <= 3) {
@@ -146,11 +158,8 @@ int main(int argc, char *argv[]) {
       string_buffer_size += 2;
     }
 
-    int wordinator_size = wordinator_str_size(parsed_number);
-    int tst_bin_size = bin_strings[(number_str_length - 1) / 3].length;
-    int the_size = wordinator_size + tst_bin_size;
-
-    string_buffer_size += the_size;
+    string_buffer_size += wordinator_str_size(parsed_number) +
+                          bin_strings[(number_str_length - 1) / 3].length;
   }
 
   string_buffer = (char *)malloc(string_buffer_size);
