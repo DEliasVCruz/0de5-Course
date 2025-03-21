@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    parse_status = parse_int_string(number_str, &parsed_number);
+    parse_status = parse_int_string(buffer, &parsed_number);
     if (parse_status == PARSE_FAILED) {
       fprintf(stderr, "Pliss use a numeric value\n");
       PRINT_USAGE(argv[0]);
@@ -146,11 +146,20 @@ int main(int argc, char *argv[]) {
       string_buffer_size += 2;
     }
 
-    string_buffer_size +=
-        wordinator_str_size(parsed_number) + bin_strings[i / 3].length;
+    int wordinator_size = wordinator_str_size(parsed_number);
+    int tst_bin_size = bin_strings[(number_str_length - 1) / 3].length;
+    int the_size = wordinator_size + tst_bin_size;
+
+    string_buffer_size += the_size;
   }
 
-  string_buffer = alloca(string_buffer_size);
+  string_buffer = (char *)malloc(string_buffer_size);
+  if (string_buffer == NULL) {
+    fprintf(stderr, "could not allocate enough memory for string\n");
+
+    return 1;
+  }
+
   string_capacity = string_buffer_size;
   string_buffer_index = 0;
 
@@ -186,6 +195,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("The number is %s\n", string_buffer);
+  free(string_buffer);
 
   return 0;
 }
@@ -240,7 +250,11 @@ int wordinator_str_size(int number) {
     base_part = dec_number % 10;
     dec_part = (dec_number - base_part);
 
-    size += number_names[dec_part].length + number_names[base_part].length + 1;
+    size += number_names[dec_part].length;
+
+    if (base_part > 0) {
+      size += number_names[base_part].length + 1;
+    }
   }
 
   return size;
@@ -281,11 +295,18 @@ void write_wordinator_str(int number, char *buffer, int *buffer_idx,
     base_part = dec_number % 10;
     dec_part = (dec_number - base_part);
 
-    written =
-        snprintf(&buffer[*buffer_idx], *capacity, "%s-%s",
-                 number_names[dec_part].value, number_names[base_part].value);
+    written = snprintf(&buffer[*buffer_idx], *capacity, "%s",
+                       number_names[dec_part].value);
 
     *buffer_idx += written;
     *capacity -= written;
+
+    if (base_part > 0) {
+      written = snprintf(&buffer[*buffer_idx], *capacity, "-%s",
+                         number_names[base_part].value);
+
+      *buffer_idx += written;
+      *capacity -= written;
+    }
   }
 }
