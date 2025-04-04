@@ -7,6 +7,7 @@
 #define PRINT_USAGE printf("Usage: %s file\n", argv[0])
 #define MALFORMED_BM printf("Malformed bit map file: %s\n", file_name)
 #define BM_FILE_HEADER_SIZE 14
+#define ASCII_RENDER_TMPL "\033[48;2;%d;%d;%dm \033[0m"
 
 #define FREE(memory) free(memory), memory = NULL
 
@@ -43,10 +44,11 @@ int main(int argc, char *argv[]) {
   size_t bytes_read;
   int byte_padding;
   int pixel_bytes_per_row;
-  int pixel_row_bytes_width;
+  int pixel_row_bytes_length;
   int bytes_per_pixel;
-  int pixels_length;
   int row_string_size;
+  int bytes_written;
+  int byte_idx_end;
 
   string render_string;
   bm_info_header info_header;
@@ -97,10 +99,10 @@ int main(int argc, char *argv[]) {
   byte_padding =
       pixel_bytes_per_row % 4 == 0 ? 0 : (4 - (pixel_bytes_per_row % 4));
 
-  pixel_row_bytes_width =
+  pixel_row_bytes_length =
       info_header.pixel_image_width * sizeof(bgb_pixel_t) + byte_padding;
 
-  if (info_header.pixel_image_height * pixel_row_bytes_width !=
+  if (info_header.pixel_image_height * pixel_row_bytes_length !=
       info_header.image_bytes_size) {
     MALFORMED_BM;
     PRINT_USAGE;
@@ -109,50 +111,69 @@ int main(int argc, char *argv[]) {
   }
 
   byte_t *pixels =
-      calloc(info_header.pixel_image_height, pixel_row_bytes_width);
+      calloc(info_header.pixel_image_height, pixel_row_bytes_length);
   assert(pixels != NULL);
 
-  bytes_read = fread(pixels, pixel_row_bytes_width,
+  bytes_read = fread(pixels, pixel_row_bytes_length,
                      info_header.pixel_image_height, bm_image_file);
   assert(bytes_read > 0);
 
-  fclose(bm_image_file);
+  fclose(bm_image_file), bm_image_file = NULL;
 
-  row_string_size = pixel_row_bytes_width + 22 * info_header.pixel_image_width;
+  // Add up the number of bytes in the row and the rending string size times
+  // the number of pixels in the row
+  row_string_size = pixel_row_bytes_length + 22 * info_header.pixel_image_width;
+
+  // Allocate the render string buffer
   render_string.buffer =
       calloc(info_header.pixel_image_height, row_string_size);
   assert(render_string.buffer != NULL);
 
+  // Setup the rest of the render string bufgfer
   render_string.capacity = info_header.pixel_image_height * row_string_size;
   render_string.available = render_string.capacity;
   render_string.length = 0;
 
-  pixels_length = info_header.pixel_image_height * pixel_row_bytes_width;
+  // The basic algorithm for rendering the bm image one byte a time from
+  // the top left of the image - down, since the bm image pixels are layed
+  // out from bottom left - up, we have to read from the end of the pixels
+  // array backwords, one row at a time moving left to right in the pixels
+  // of the row
+  //
+  // To this calculation we iterate over each logical row of the image,
+  // starting from 1, and for each row we calculate the byte offset in
+  // weach the row pixels would start, this is equal to the total nubmer
+  // of bytes of the image, minus the bytes length of a row times the row
+  // number
+  //
+  // This would position us right at the start of the row first byte and
+  // after any padding, then we iterate n number of bytes per pixels up to
+  // the row bytes length minus padding
   bgb_pixel_t *pixel = {0};
-  int bytes_written;
+  byte_idx_end = pixel_row_bytes_length - byte_padding;
 
-  for (int i = pixels_length - bytes_per_pixel - byte_padding; i >= 0;
-       i -= bytes_per_pixel) {
-    pixel = (bgb_pixel_t *)&pixels[i];
+  for (int row = 1; row <= info_header.pixel_image_height; row++) {
+    int row_idx_start =
+        info_header.image_bytes_size - (pixel_row_bytes_length * row);
 
-    bytes_written = snprintf(
-        &render_string.buffer[render_string.length], render_string.available,
-        "\033[48;2;%d;%d;%dm \033[0m", pixel->red, pixel->green, pixel->blue);
-    assert(bytes_written > 0);
+    for (int i = 0; i < byte_idx_end; i += bytes_per_pixel) {
+      pixel = (bgb_pixel_t *)&pixels[row_idx_start + i];
 
-    render_string.length += bytes_written;
-    render_string.available -= bytes_written;
-
-    if (i == 0 || i % pixel_bytes_per_row == 0) {
       bytes_written = snprintf(&render_string.buffer[render_string.length],
-                               render_string.available, "%s", "\n");
+                               render_string.available, ASCII_RENDER_TMPL,
+                               pixel->red, pixel->green, pixel->blue);
       assert(bytes_written > 0);
 
       render_string.length += bytes_written;
       render_string.available -= bytes_written;
-
-      i -= byte_padding;
     }
+
+    bytes_written = snprintf(&render_string.buffer[render_string.length],
+                             render_string.available, "%s", "\n");
+    assert(bytes_written > 0);
+
+    render_string.length += bytes_written;
+    render_string.available -= bytes_written;
   }
 
   FREE(pixels);
